@@ -1,0 +1,6 @@
+{
+  "name": "token-speed",
+  "owner": { "name": "ggl003614-tech" },
+  "metadata": { "description": "Claude Code 吐词速度插件：状态栏显示 tok/s 与首字延迟" },
+  "plugins": [{ "name": "token-speed", "source": "./" }]
+}

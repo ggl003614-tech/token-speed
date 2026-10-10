@@ -1,0 +1,9 @@
+{
+  "name": "token-speed",
+  "version": "0.1.0",
+  "description": "测 Claude 的吐词速度：状态栏实时显示 tok/s 和首字延迟，/speed 看本会话统计",
+  "author": { "name": "ggl003614-tech", "url": "https://github.com/ggl003614-tech" },
+  "repository": "https://github.com/ggl003614-tech/token-speed",
+  "license": "MIT",
+  "keywords": ["speed", "tokens", "status-line", "latency"]
+}
