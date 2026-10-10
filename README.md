@@ -1,46 +1,65 @@
 # token-speed
 
-看 Claude 吐字有多快。这是一个 Claude Code 插件：每次模型输出完，状态栏显示这一段的生成速度和首字延迟。
+See how fast Claude writes. A Claude Code plugin that shows each response's generation speed and time to first token in the status line, in your language.
 
 ```text
-⚡ 86 tok/s · 首字 1.4s · 均速 79 tok/s
+⚡ 86 tok/s · TTFT 1.4s · avg 79 tok/s
 ```
 
-- **tok/s**：这一段每秒生成的 token 数
-- **首字**：从请求发出到第一块内容到达的时间
-- **均速**：本会话的平均速度，按 token 数加权
+- **tok/s**: tokens per second for the response that just finished
+- **TTFT**: time from sending the request to the first piece of the response
+- **avg**: this session's average, weighted by tokens
 
-输入 `/speed` 看本会话汇总：平均速度、最快 / 最慢、平均首字延迟、总输出量。
+Run `/speed` for a session summary: average, fastest / slowest, average time to first token, total output.
 
-## 安装
+## Languages
 
-在终端里的 `claude` 中运行：
+The plugin speaks English, 简体中文, 繁體中文, 日本語 and 한국어, and picks one by itself, from the first of these that names a language it speaks:
+
+1. the plugin's own **Language** option, if you set one (default `auto`)
+2. Claude Code's `language` setting
+3. your shell locale: `LC_ALL`, `LC_MESSAGES`, `LANG`
+4. your operating system's language
+
+Anything else falls back to English.
+
+| Language | Status line |
+| --- | --- |
+| English | `⚡ 86 tok/s · TTFT 1.4s · avg 79 tok/s` |
+| 简体中文 | `⚡ 86 tok/s · 首字 1.4s · 均速 79 tok/s` |
+| 繁體中文 | `⚡ 86 tok/s · 首字 1.4s · 均速 79 tok/s` |
+| 日本語 | `⚡ 86 tok/s · 初回 1.4s · 平均 79 tok/s` |
+| 한국어 | `⚡ 86 tok/s · 첫 토큰 1.4s · 평균 79 tok/s` |
+
+## Install
+
+**Terminal:** in `claude`, run
 
 ```text
 /plugin install token-speed --marketplace ggl003614-tech/token-speed
 ```
 
-提示 `Add marketplace?` 时回 `y`，再选安装范围（默认的用户级别就行）。装完立即生效，不用重启。用户级别装好后，桌面版的 Code 标签页也会加载它。
+Answer `y` to add the marketplace, then pick a scope (user is fine). It is active right away. Installed at the user scope, it also loads in the desktop app's Code tab.
 
-> 需要较新的 Claude Code：本插件用的是函数钩子（function hooks）插件接口，基于 2.1.293 开发。这套接口还在早期预览阶段，旧版本加载不了，以后的版本也可能有变化。
+**Desktop app:** download `token-speed-<version>.zip` from [Releases](https://github.com/ggl003614-tech/token-speed/releases), then go to Settings → Plugins → Upload local plugin and drop the zip in.
 
-## 怎么测的
+> Needs a recent Claude Code. The plugin uses the function-hooks plugin API, built against 2.1.293. That API is in early access: older versions cannot load it, and later ones may change it.
 
-插件挂在 `turn.step` 上，每次模型请求记三个时间点：请求发出、第一块内容到达、结束标记到达。
+## How it measures
 
-- **速度** = API 返回的 `output_tokens` ÷（第一块 → 结束）的时长
-- **首字** = 请求发出 → 第一块到达
+The plugin hooks `turn.step` and, for every model request, notes three moments: the request goes out, the first piece of the response arrives, the stop arrives.
 
-用的是 API 官方的 token 数，不是按字数估算。
+- **speed** = `output_tokens` as the API reports it ÷ (first piece → stop)
+- **TTFT** = request out → first piece
 
-说明：
+The token count is the API's own, not an estimate from characters.
 
-- 速度包含**思考 token**。思考内容不显示，但模型确实在生成。
-- 少于 20 个 token、或生成不到 0.25 秒的短回复，只记首字延迟，不计速度。
-- 子代理的请求不计入，免得覆盖主对话的数字。
-- 统计只在当前会话里，插件重新加载后从零开始。
+- Thinking tokens count. You don't see them, but the model is generating them.
+- Replies under 20 tokens, or under 0.25 s of generation, get a TTFT but no rate.
+- Subagent requests are skipped so they don't overwrite the main conversation's number.
+- The tally lives in the session and starts over when the plugin reloads.
 
-## 开发
+## Development
 
 ```text
 claude plugin validate .
@@ -49,24 +68,14 @@ claude plugin test .
 
 ---
 
-## English
+## 中文
 
-A Claude Code plugin that shows how fast Claude is generating. After each model response, the status line shows that response's speed and time to first token:
+看 Claude 吐字有多快。每次模型输出完，状态栏显示这一段的生成速度和首字延迟，输入 `/speed` 看本会话汇总。界面语言会自动跟随你的 Claude Code 语言设置或系统语言（支持简体、繁體、英文、日文、韩文），也可以在插件的 Language 选项里手动指定。
 
-```text
-⚡ 86 tok/s · 首字 1.4s · 均速 79 tok/s
-```
+**终端安装：** 在 `claude` 里运行 `/plugin install token-speed --marketplace ggl003614-tech/token-speed`，提示时回 `y`。
 
-(`首字` = time to first token, `均速` = token-weighted session average.) Run `/speed` for a session summary.
+**桌面版安装：** 从 [Releases](https://github.com/ggl003614-tech/token-speed/releases) 下载 `token-speed-<版本>.zip`，在 设置 → 插件 → 上传本地插件 里拖进去。
 
-**Install** from `claude` in a terminal:
-
-```text
-/plugin install token-speed --marketplace ggl003614-tech/token-speed
-```
-
-Answer `y` to add the marketplace, then pick a scope. Requires a recent Claude Code with the function-hooks plugin API (built on 2.1.293; the API is early access and may change).
-
-**How it measures:** `output_tokens` reported by the API, divided by the time from the first streamed chunk to the stop chunk. Thinking tokens are included. Replies under 20 tokens get a first-token time but no rate. Subagent requests are skipped.
+速度 = API 返回的 `output_tokens` ÷（首块 → 结束块）时长，包含思考 token；少于 20 token 的短回复只记首字延迟；子代理不计入。
 
 MIT License.

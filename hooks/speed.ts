@@ -1,5 +1,7 @@
 // Pure speed math: no `$`, so the tests can check it directly.
 
+import type { Strings } from './i18n'
+
 /** Below these, a step is too short for its rate to mean anything. */
 export const MIN_TOKENS = 20
 export const MIN_GEN_MS = 250
@@ -94,33 +96,35 @@ export function averageRate(stats: SpeedStats): number | undefined {
 const seconds = (ms: number) => `${(ms / 1000).toFixed(1)}s`
 const rate = (r: number) => `${Math.round(r)} tok/s`
 
-export function formatStatus(stats: SpeedStats): string | undefined {
+export function formatStatus(stats: SpeedStats, t: Strings): string | undefined {
   const last = stats.last
   if (last === undefined) return undefined
 
   const parts: string[] = []
   if (last.tokPerSec !== undefined) parts.push(rate(last.tokPerSec))
-  parts.push(`首字 ${seconds(last.ttftMs)}`)
+  parts.push(`${t.ttft} ${seconds(last.ttftMs)}`)
   const avg = averageRate(stats)
-  if (avg !== undefined) parts.push(`均速 ${rate(avg)}`)
+  if (avg !== undefined) parts.push(`${t.avg} ${rate(avg)}`)
 
   return `⚡ ${parts.join(' · ')}`
 }
 
-export function formatSummary(stats: SpeedStats): string {
-  if (stats.steps === 0) return '本会话还没有测到模型输出。'
+export function formatSummary(stats: SpeedStats, t: Strings): string {
+  if (stats.steps === 0) return t.empty
 
   const avg = averageRate(stats)
+  const row = (label: string, value: string) => `  ${label}${t.colon}${value}`
   const lines = [
-    `吐词速度 · ${stats.last?.model ?? ''}`,
-    `  平均速度   ${avg === undefined ? '—' : rate(avg)}`,
-    `  最快 / 最慢 ${stats.fastest === undefined ? '—' : rate(stats.fastest)} / ${stats.slowest === undefined ? '—' : rate(stats.slowest)}`,
-    `  平均首字   ${seconds(stats.ttftMsTotal / stats.steps)}`,
-    `  共输出     ${stats.ratedTokens} tokens（${stats.rated} 次计速 / ${stats.steps} 次请求）`,
+    `${t.summaryTitle} · ${stats.last?.model ?? ''}`,
+    row(t.average, avg === undefined ? '—' : rate(avg)),
+    row(
+      t.fastestSlowest,
+      `${stats.fastest === undefined ? '—' : rate(stats.fastest)} / ${stats.slowest === undefined ? '—' : rate(stats.slowest)}`,
+    ),
+    row(t.avgTtft, seconds(stats.ttftMsTotal / stats.steps)),
+    `  ${t.total(stats.ratedTokens, stats.rated, stats.steps)}`,
   ]
-  if (stats.rated < stats.steps) {
-    lines.push(`  少于 ${MIN_TOKENS} token 的短回复只记首字延迟，不计速度。`)
-  }
+  if (stats.rated < stats.steps) lines.push(`  ${t.shortNote(MIN_TOKENS)}`)
 
   return lines.join('\n')
 }

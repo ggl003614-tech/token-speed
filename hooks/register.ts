@@ -1,24 +1,49 @@
-import type { Register } from 'claude-code'
+import type { EngineInterface, Register } from 'claude-code'
 
+import { isLang, pickLanguage, STRINGS } from './i18n'
+import type { Lang } from './i18n'
 import { addStep, EMPTY_STATS, formatStatus, formatSummary, measureStep } from './speed'
 import type { SpeedStats } from './speed'
 
 const COMMAND = 'speed'
 
-export const register: Register = on => {
+/** Each source read on its own: one that fails or is missing is skipped. */
+async function detectLanguage($: EngineInterface): Promise<Lang> {
+  const settingLanguage = await $.settings
+    .read()
+    .then(s => (typeof s.language === 'string' ? s.language : undefined))
+    .catch(() => undefined)
+  const envLocale =
+    (await $.env.get('LC_ALL').catch(() => undefined)) ||
+    (await $.env.get('LC_MESSAGES').catch(() => undefined)) ||
+    (await $.env.get('LANG').catch(() => undefined))
+  let systemLocale: string | undefined
+  try {
+    systemLocale = Intl.DateTimeFormat().resolvedOptions().locale
+  } catch {
+    systemLocale = undefined
+  }
+
+  return pickLanguage({ settingLanguage, envLocale, systemLocale })
+}
+
+export const register: Register = (on, options) => {
   // Module state: a hot reload of the mod starts the tally over.
   let stats: SpeedStats = EMPTY_STATS
+  let lang: Lang | undefined = isLang(options.language) ? options.language : undefined
 
   on('session.start', async ($, e, next) => {
-    await $.command.register({
-      name: COMMAND,
-      description: '查看本会话 Claude 的吐词速度统计',
-    })
+    lang ??= await detectLanguage($)
+    await $.command.register({ name: COMMAND, description: STRINGS[lang].commandDescription })
 
     return next(e)
   })
 
-  on('command.run', { command: COMMAND }, async () => ({ text: formatSummary(stats) }))
+  on('command.run', { command: COMMAND }, async $ => {
+    lang ??= await detectLanguage($)
+
+    return { text: formatSummary(stats, STRINGS[lang]) }
+  })
 
   on('turn.step', async function* ($, e, next) {
     // Subagents run in parallel with the main loop; timing them here would
@@ -48,7 +73,8 @@ export const register: Register = on => {
     })
     if (step !== undefined) {
       stats = addStep(stats, step)
-      $.ui.status(formatStatus(stats))
+      lang ??= await detectLanguage($)
+      $.ui.status(formatStatus(stats, STRINGS[lang]))
     }
 
     return result
